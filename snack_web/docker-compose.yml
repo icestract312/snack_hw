@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: snack_web
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - snack-net
+
+  db:
+    image: postgres:15
+    container_name: snack_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - snack_db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - snack-net
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: snack_pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    depends_on:
+      - db
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - snack-net
+
+volumes:
+  snack_db_data:
+  pgadmin_data:
+
+networks:
+  snack-net:
+    driver: bridge

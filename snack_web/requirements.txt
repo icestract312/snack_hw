@@ -1,0 +1,7 @@
+Flask
+pandas
+python-dotenv
+fastapi
+uvicorn[standard]
+SQLAlchemy
+psycopg2-binary
