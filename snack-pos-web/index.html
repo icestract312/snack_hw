@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -8,4 +8,89 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
+</html> -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snack Shop | ขนมขบเคี้ยว</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        :root { --primary: #f39c12; } /* สีเหลืองทองสำหรับปุ่ม */
+        body { background-color: #f8f9fa; }
+        .snack-card { transition: transform 0.2s; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .snack-card:hover { transform: translateY(-5px); }
+        .hero { text-align: center; padding: 3rem 0; background: #fff; margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+
+    <nav class="container">
+        <ul>
+            <li><strong>SNACK HW</strong></li>
+        </ul>
+        <ul>
+            <li><a href="#">หน้าแรก</a></li>
+            <li><a href="#">สินค้า</a></li>
+            <li><a href="#" role="button" class="outline">ตะกร้า (0)</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h1>อร่อยทุกคำ กับขนมของเรา</h1>
+            <p>คัดสรรวัตถุดิบคุณภาพดี ส่งตรงถึงมือคุณ</p>
+        </section>
+
+        <div class="grid">
+            <article class="snack-card">
+                <header>
+                    <img src="https://via.placeholder.com/300x200?text=Snack+A" alt="ขนม">
+                </header>
+                <h5>มันฝรั่งทอดกรอบ</h5>
+                <p>รสเกลือธรรมชาติ กรอบ อร่อย ไม่ใส่วัตถุกันเสีย</p>
+                <footer>
+                    <div class="grid">
+                        <span style="font-weight: bold; font-size: 1.2rem;">฿35</span>
+                        <button class="primary">หยิบใส่ตะกร้า</button>
+                    </div>
+                </footer>
+            </article>
+
+            <article class="snack-card">
+                <header>
+                    <img src="https://via.placeholder.com/300x200?text=Snack+B" alt="ขนม">
+                </header>
+                <h5>คุ้กกี้เนยสด</h5>
+                <p>หอมเนยแท้ๆ ละลายในปาก เหมาะกับทานคู่กับกาแฟ</p>
+                <footer>
+                    <div class="grid">
+                        <span style="font-weight: bold; font-size: 1.2rem;">฿45</span>
+                        <button class="primary">หยิบใส่ตะกร้า</button>
+                    </div>
+                </footer>
+            </article>
+
+            <article class="snack-card">
+                <header>
+                    <img src="https://via.placeholder.com/300x200?text=Snack+C" alt="ขนม">
+                </header>
+                <h5>ถั่วรวมมิตร</h5>
+                <p>รวมถั่วคุณภาพดี 5 ชนิด อบกรอบพร้อมทาน</p>
+                <footer>
+                    <div class="grid">
+                        <span style="font-weight: bold; font-size: 1.2rem;">฿55</span>
+                        <button class="primary">หยิบใส่ตะกร้า</button>
+                    </div>
+                </footer>
+            </article>
+        </div>
+    </main>
+
+    <footer class="container" style="text-align: center; margin-top: 3rem;">
+        <small>Created for snack_hw project | Minimal Design 2024</small>
+    </footer>
+
+</body>
 </html>
