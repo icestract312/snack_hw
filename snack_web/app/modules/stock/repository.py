@@ -46,3 +46,14 @@ class StockRepository:
         """Delete a stock record"""
         db.delete(db_stock)
         db.commit()
+
+    @staticmethod
+    def get_latest_stock_by_barcode(db: Session, barcode: str) -> Optional[models.Stock]:
+        """Get the latest stock record for a barcode where quantity_now > 0"""
+        return (
+            db.query(models.Stock)
+            .filter(models.Stock.snack_id == barcode)
+            .filter(models.Stock.quantity_now > 0)
+            .order_by(models.Stock.create_at.desc())
+            .first()
+        )

@@ -3,6 +3,9 @@ from typing import List, Optional
 import uuid
 from datetime import datetime
 from . import models, schemas, repository
+from ..snacks import repository as snacks_repository
+from ..sales import repository as sales_repository
+from ..sales import models as sales_models
 
 
 class StockService:
@@ -11,6 +14,8 @@ class StockService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = repository.StockRepository()
+        self.snacks_repository = snacks_repository.SnackRepository()
+        self.sales_repository = sales_repository.SaleRepository()
 
     def get_all_stock(self, skip: int = 0, limit: int = 100) -> List[models.Stock]:
         """Get all stock records with pagination"""
@@ -39,7 +44,6 @@ class StockService:
         
         stock_data = {
             "id": str(uuid.uuid4()),
-            "create_at": datetime.utcnow(),
             "snack_id": stock.snack_id,
             "quantity": stock.quantity,
             "quantity_now": stock.quantity_now
@@ -94,3 +98,51 @@ class StockService:
         
         update_data = {"quantity_now": new_quantity}
         return self.repository.update(self.db, db_stock, update_data)
+
+    def process_sales(self, sale_requests: List[schemas.BarcodeStockRequest]) -> List[sales_models.Sale]:
+        """
+        Process multiple sales transactions
+        Business logic:
+        1. Check each barcode exists in snacks table
+        2. Find latest stock with quantity_now > 0
+        3. Check sufficient quantity available
+        4. Decrease quantity_now in stock
+        5. Create sale record with timestamp
+        """
+        created_sales = []
+        transaction_timestamp = datetime.now()
+        
+        for request in sale_requests:
+            # Check if snack exists
+            snack = self.snacks_repository.get_by_barcode(self.db, request.barcode)
+            if not snack:
+                raise ValueError(f"Snack with barcode {request.barcode} not found")
+            
+            # Get latest stock with quantity_now > 0
+            stock = self.repository.get_latest_stock_by_barcode(self.db, request.barcode)
+            if not stock:
+                raise ValueError(f"No available stock for snack {request.barcode}")
+            
+            # Check if sufficient quantity available
+            if stock.quantity_now < request.quantity:
+                raise ValueError(
+                    f"Insufficient stock for {request.barcode}. "
+                    f"Available: {stock.quantity_now}, Requested: {request.quantity}"
+                )
+            
+            # Decrease quantity_now in stock
+            new_quantity_now = stock.quantity_now - request.quantity
+            update_data = {"quantity_now": new_quantity_now}
+            self.repository.update(self.db, stock, update_data)
+            
+            # Create sale record
+            sale_data = {
+                "id": str(uuid.uuid4()),
+                "timestamp": transaction_timestamp,
+                "snack_id": request.barcode,
+                "quantity": request.quantity
+            }
+            sale = self.sales_repository.create(self.db, sale_data)
+            created_sales.append(sale)
+        
+        return created_sales

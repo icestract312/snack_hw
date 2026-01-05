@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
+from app.modules.sales import schemas as sales_schemas
 from . import service, schemas
 
 router = APIRouter(prefix="/stock", tags=["stock"])
@@ -61,3 +62,24 @@ def delete_stock(stock_id: str, db: Session = Depends(get_db)):
     if not stock_service.delete_stock(stock_id):
         raise HTTPException(status_code=404, detail="Stock record not found")
     return {"message": "Stock record deleted successfully"}
+
+
+@router.post("/sales", response_model=str, status_code=201)
+def process_sales(
+    sale_requests: List[schemas.BarcodeStockRequest],
+    db: Session = Depends(get_db)
+):
+    """
+    Process sales transactions
+    - Validates barcode exists in snacks table
+    - Finds latest stock with quantity_now > 0
+    - Checks sufficient quantity available
+    - Decreases quantity_now in stock table
+    - Creates sale records with timestamp
+    """
+    stock_service = service.StockService(db)
+    try:
+        stock_service.process_sales(sale_requests)
+        return "สินค้าชำระเสร็จ"
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
