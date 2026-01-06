@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from app.modules.snacks.schemas import SnackResponse
 
 
 class SaleBase(BaseModel):
@@ -21,6 +22,7 @@ class SaleUpdate(BaseModel):
 class SaleResponse(SaleBase):
     id: str
     timestamp: datetime
+    snack: Optional[SnackResponse] = None
 
     class Config:
         from_attributes = True
