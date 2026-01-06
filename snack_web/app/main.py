@@ -26,13 +26,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(users_router)
-app.include_router(snacks_router)
-app.include_router(sales_router)
-app.include_router(stock_router)
+# Include routers with /api prefix
+app.include_router(users_router, prefix="/api")
+app.include_router(snacks_router, prefix="/api")
+app.include_router(sales_router, prefix="/api")
+app.include_router(stock_router, prefix="/api")
 
 
-@app.get("/")
+@app.get("")
 def root():
     return {"message": "Snack POS API", "status": "running"}
