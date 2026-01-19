@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import uuid
 from datetime import datetime
@@ -11,17 +11,17 @@ class StockRepository:
     @staticmethod
     def get_all(db: Session, skip: int = 0, limit: int = 100) -> List[models.Stock]:
         """Retrieve all stock records with pagination"""
-        return db.query(models.Stock).offset(skip).limit(limit).all()
+        return db.query(models.Stock).options(joinedload(models.Stock.snack)).offset(skip).limit(limit).all()
 
     @staticmethod
     def get_by_id(db: Session, stock_id: str) -> Optional[models.Stock]:
         """Find stock by ID"""
-        return db.query(models.Stock).filter(models.Stock.id == stock_id).first()
+        return db.query(models.Stock).options(joinedload(models.Stock.snack)).filter(models.Stock.id == stock_id).first()
 
     @staticmethod
     def get_by_snack_id(db: Session, snack_id: str) -> List[models.Stock]:
         """Find all stock records for a specific snack"""
-        return db.query(models.Stock).filter(models.Stock.snack_id == snack_id).all()
+        return db.query(models.Stock).options(joinedload(models.Stock.snack)).filter(models.Stock.snack_id == snack_id).all()
 
     @staticmethod
     def create(db: Session, stock_data: dict) -> models.Stock:
@@ -52,6 +52,7 @@ class StockRepository:
         """Get the latest stock record for a barcode where quantity_now > 0"""
         return (
             db.query(models.Stock)
+            .options(joinedload(models.Stock.snack))
             .filter(models.Stock.snack_id == barcode)
             .filter(models.Stock.quantity_now > 0)
             .order_by(models.Stock.create_at.desc())

@@ -26,6 +26,7 @@ class StockUpdate(BaseModel):
 
 class StockResponse(StockBase):
     id: str
+    snack_name: Optional[str] = None
     create_at: datetime
 
     class Config:

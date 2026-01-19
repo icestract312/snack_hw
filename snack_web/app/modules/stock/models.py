@@ -30,6 +30,9 @@ class Stock(Base):
     snack = relationship("Snack")
     quantity = Column(Integer)
     quantity_now = Column(Integer)
+    @property
+    def snack_name(self):
+        return self.snack.name if self.snack else None
     @validates('quantity_now')
     def validate_quantity_now(self, key, value):
         if self.quantity is not None and value > self.quantity:

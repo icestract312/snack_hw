@@ -19,15 +19,18 @@ class StockService:
 
     def get_all_stock(self, skip: int = 0, limit: int = 100) -> List[models.Stock]:
         """Get all stock records with pagination"""
-        return self.repository.get_all(self.db, skip, limit)
+        stocks = self.repository.get_all(self.db, skip, limit)
+        return [self._serialize_stock(s) for s in stocks]
 
     def get_stock_by_id(self, stock_id: str) -> Optional[models.Stock]:
         """Get a specific stock record by ID"""
-        return self.repository.get_by_id(self.db, stock_id)
+        stock = self.repository.get_by_id(self.db, stock_id)
+        return self._serialize_stock(stock) if stock else None
 
     def get_stock_by_snack_id(self, snack_id: str) -> List[models.Stock]:
         """Get all stock records for a specific snack"""
-        return self.repository.get_by_snack_id(self.db, snack_id)
+        stocks = self.repository.get_by_snack_id(self.db, snack_id)
+        return [self._serialize_stock(s) for s in stocks]
 
     def create_stock(self, stock: schemas.StockCreate) -> models.Stock:
         """
@@ -48,7 +51,8 @@ class StockService:
             "quantity": stock.quantity,
             "quantity_now": stock.quantity_now
         }
-        return self.repository.create(self.db, stock_data)
+        db_stock = self.repository.create(self.db, stock_data)
+        return self._serialize_stock(db_stock)
 
     def update_stock(self, stock_id: str, stock: schemas.StockUpdate) -> Optional[models.Stock]:
         """
@@ -69,7 +73,8 @@ class StockService:
         if "quantity_now" in update_data and update_data["quantity_now"] < 0:
             raise ValueError("Current quantity cannot be negative")
         
-        return self.repository.update(self.db, db_stock, update_data)
+        updated = self.repository.update(self.db, db_stock, update_data)
+        return self._serialize_stock(updated)
 
     def delete_stock(self, stock_id: str) -> bool:
         """
@@ -97,7 +102,21 @@ class StockService:
             raise ValueError("Insufficient stock quantity")
         
         update_data = {"quantity_now": new_quantity}
-        return self.repository.update(self.db, db_stock, update_data)
+        updated = self.repository.update(self.db, db_stock, update_data)
+        return self._serialize_stock(updated)
+
+    def _serialize_stock(self, stock: Optional[models.Stock]) -> Optional[dict]:
+        """Return a serializable dict for a stock record including snack name"""
+        if not stock:
+            return None
+        return {
+            "snack_id": stock.snack_id,
+            "snack_name": stock.snack.name if getattr(stock, "snack", None) else None,
+            "quantity": stock.quantity,
+            "quantity_now": stock.quantity_now,
+            "id": stock.id,
+            "create_at": stock.create_at,
+        }
 
     def process_sales(self, sale_requests: List[schemas.BarcodeStockRequest]) -> List[sales_models.Sale]:
         """
