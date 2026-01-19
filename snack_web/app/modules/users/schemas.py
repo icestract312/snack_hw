@@ -8,7 +8,7 @@ class MemberBase(BaseModel):
 
 
 class MemberCreate(MemberBase):
-    pass
+    ean13_code: str
 
 
 class MemberUpdate(BaseModel):
@@ -17,7 +17,7 @@ class MemberUpdate(BaseModel):
 
 
 class MemberResponse(MemberBase):
-    id: str
+    ean13_code: str
 
     class Config:
         from_attributes = True

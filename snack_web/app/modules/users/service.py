@@ -22,10 +22,13 @@ class MemberService:
     def create_member(self, member: schemas.MemberCreate) -> models.Member:
         """
         Create a new member
-        Business logic: Generate UUID, validate data
+        Business logic: Validate ean13_code, validate data
         """
+        if not member.ean13_code:
+            raise ValueError("EAN13 code is required")
+        
         member_data = {
-            "id": str(uuid.uuid4()),
+            "ean13_code": member.ean13_code,
             "name": member.name,
             "member_class": member.member_class
         }

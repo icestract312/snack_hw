@@ -14,8 +14,8 @@ class MemberRepository:
 
     @staticmethod
     def get_by_id(db: Session, member_id: str) -> Optional[models.Member]:
-        """Find member by ID"""
-        return db.query(models.Member).filter(models.Member.id == member_id).first()
+        """Find member by EAN13 code"""
+        return db.query(models.Member).filter(models.Member.ean13_code == member_id).first()
 
     @staticmethod
     def create(db: Session, member_data: dict) -> models.Member:

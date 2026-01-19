@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from . import models, schemas, repository
+from app.modules.stock.models import Stock
 
 
 class SaleService:
@@ -20,27 +21,89 @@ class SaleService:
         """Get a specific sale by ID"""
         return self.repository.get_by_id(self.db, sale_id)
 
-    def create_sale(self, sale: schemas.SaleCreate) -> models.Sale:
+    def create_sale(self, sale: schemas.SaleCreate) -> dict:
         """
-        Create a new sale
-        Business logic: Generate UUID, set timestamp, validate quantity
+        Create a new sale with sale_snacks
+        Business logic: Generate UUID, set timestamp, validate stock availability
+        Returns: Custom format with member_name, items, and total_price
         """
-        # Validate quantity
-        if sale.quantity <= 0:
-            raise ValueError("Quantity must be greater than 0")
+        # Validate sale_snacks
+        if not sale.sale_snacks:
+            raise ValueError("Sale must have at least one item")
         
+        for ss in sale.sale_snacks:
+            if ss.quantity <= 0:
+                raise ValueError("Quantity must be greater than 0")
+        
+        # Prepare sale data
         sale_data = {
             "id": str(uuid.uuid4()),
-            "timestamp": sale.timestamp or datetime.utcnow(),
-            "snack_id": sale.snack_id,
-            "quantity": sale.quantity
+            "timestamp": sale.timestamp or datetime.now(timezone(timedelta(hours=7))).replace(tzinfo=None),
+            "operator": sale.operator,
         }
-        return self.repository.create(self.db, sale_data)
+        
+        # Validate stock and prepare sale_snacks data
+        sale_snacks_data = []
+        items = []
+        total_price = 0.0
+        
+        for ss in sale.sale_snacks:
+            # Find available stock for this snack
+            stock = (
+                self.db.query(Stock)
+                .filter(
+                    Stock.snack_id == ss.snack_id,
+                    Stock.quantity_now >= ss.quantity
+                )
+                .order_by(Stock.create_at.asc())  # FIFO: oldest stock first
+                .first()
+            )
+            
+            if not stock:
+                raise ValueError(
+                    f"Insufficient stock for snack {ss.snack_id}. "
+                    f"Required: {ss.quantity}, Available: 0 or not found"
+                )
+            
+            # Deduct stock quantity
+            stock.quantity_now -= ss.quantity
+            
+            # Calculate item total
+            item_price = stock.snack.price if stock.snack else 0.0
+            total_price += item_price * ss.quantity
+            
+            # Add to items list
+            items.append({
+                "snack_name": stock.snack.name if stock.snack else "Unknown",
+                "price": item_price,
+                "quantity": ss.quantity,
+            })
+            
+            sale_snacks_data.append({
+                "id": str(uuid.uuid4()),
+                "stock_id": stock.id,
+                "quantity": ss.quantity,
+            })
+        
+        # Create the sale in database
+        db_sale = self.repository.create(self.db, sale_data, sale_snacks_data)
+        
+        # Get member name if operator is provided
+        member_name = None
+        if db_sale.member:
+            member_name = db_sale.member.name
+        
+        # Return custom response
+        return {
+            "member_name": member_name,
+            "items": items,
+            "total_price": total_price,
+        }
 
     def update_sale(self, sale_id: str, sale: schemas.SaleUpdate) -> Optional[models.Sale]:
         """
-        Update sale information
-        Business logic: Validate existence, validate quantity if updated
+        Update sale information (operator, timestamp)
+        Business logic: Validate existence
         """
         db_sale = self.repository.get_by_id(self.db, sale_id)
         if not db_sale:
@@ -50,15 +113,11 @@ class SaleService:
         if not update_data:
             return db_sale
         
-        # Validate quantity if being updated
-        if "quantity" in update_data and update_data["quantity"] <= 0:
-            raise ValueError("Quantity must be greater than 0")
-        
         return self.repository.update(self.db, db_sale, update_data)
 
     def delete_sale(self, sale_id: str) -> bool:
         """
-        Delete a sale
+        Delete a sale and its sale_snacks
         Business logic: Check if sale exists before deletion
         """
         db_sale = self.repository.get_by_id(self.db, sale_id)

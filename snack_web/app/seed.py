@@ -6,13 +6,14 @@ from app.core.database import SessionLocal
 from app.modules.users.models import Member
 from app.modules.snacks.models import Snack
 from app.modules.stock.models import Stock
-from app.modules.sales.models import Sale
+from app.modules.sales.models import Sale, SaleSnack
 
 
 ROOT = Path(__file__).parent.parent
 MEMBERS_FILE = ROOT / "member.csv"
 SNACKS_FILE = ROOT / "snacks.csv"
 SALES_FILE = ROOT / "sales.csv"
+SALES_SNACK_FILE = ROOT / "sales_snack.csv"
 STOCK_FILE = ROOT / "stock.csv"
 
 
@@ -25,12 +26,12 @@ def seed_members(session):
     with MEMBERS_FILE.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for r in reader:
-            mid = (r.get("id") or "").strip()
-            display = (r.get("display") or "").strip() or mid
+            ean13 = (r.get("ean13_code") or "").strip()
+            display = (r.get("display") or "").strip()
             group = (r.get("group") or "").strip() or "Unknown"
-            if not (mid or display):
+            if not ean13:
                 continue
-            m = Member(id=mid or display, name=display, member_class=group)
+            m = Member(ean13_code=ean13, name=display, member_class=group)
             session.merge(m)
             count += 1
     return count
@@ -101,16 +102,39 @@ def seed_sales(session):
         for r in reader:
             sid = (r.get("id") or "").strip()
             ts = parse_timestamp(r.get("timestamp"))
-            snack_id = (r.get("snack_id") or "").strip()
-            quantity = int(float(r.get("quantity") or 0))
+            operator = (r.get("operator") or "").strip() or None
 
             sale = Sale(
                 id=sid or None,
                 timestamp=ts,
-                snack_id=snack_id,
-                quantity=quantity,
+                operator=operator,
             )
             session.merge(sale)
+            count += 1
+    return count
+
+
+def seed_sales_snack(session):
+    if not SALES_SNACK_FILE.exists():
+        print("No sales_snack.csv found — skipping sales_snack")
+        return 0
+
+    count = 0
+    with SALES_SNACK_FILE.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            ssid = (r.get("id") or "").strip()
+            sale_id = (r.get("sale_id") or "").strip()
+            quantity = int(float(r.get("quantity") or 0))
+            stock_id = (r.get("stock_id") or "").strip()
+
+            sale_snack = SaleSnack(
+                id=ssid or None,
+                sale_id=sale_id,
+                quantity=quantity,
+                stock_id=stock_id,
+            )
+            session.merge(sale_snack)
             count += 1
     return count
 
@@ -120,10 +144,11 @@ def run():
     try:
         m = seed_members(session)
         s = seed_snacks(session)
-        st = seed_stock(session)
-        sa = seed_sales(session)
+        # st = seed_stock(session)
+        # sa = seed_sales(session)
+        # ss = seed_sales_snack(session)
         session.commit()
-        print(f"Seeded: members={m}, snacks={s}, stock={st}, sales={sa}")
+        # print(f"Seeded: members={m}, snacks={s}, stock={st}, sales={sa}, sales_snack={ss}")
     except Exception:
         session.rollback()
         raise
