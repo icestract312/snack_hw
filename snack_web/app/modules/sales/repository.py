@@ -3,6 +3,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime
 from . import models
+from app.modules.stock import models as stock_models
 
 
 class SaleRepository:
@@ -17,7 +18,7 @@ class SaleRepository:
                 joinedload(models.Sale.member),
                 joinedload(models.Sale.sale_snacks)
                 .joinedload(models.SaleSnack.stock)
-                .joinedload(models.Stock.snack),
+                .joinedload(stock_models.Stock.snack),
             )
             .offset(skip)
             .limit(limit)
@@ -33,7 +34,7 @@ class SaleRepository:
                 joinedload(models.Sale.member),
                 joinedload(models.Sale.sale_snacks)
                 .joinedload(models.SaleSnack.stock)
-                .joinedload(models.Stock.snack),
+                .joinedload(stock_models.Stock.snack),
             )
             .filter(models.Sale.id == sale_id)
             .first()

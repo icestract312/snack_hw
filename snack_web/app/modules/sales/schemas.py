@@ -62,10 +62,23 @@ class SaleUpdate(BaseModel):
     timestamp: Optional[datetime] = None
 
 
-class SaleResponse(SaleBase):
+
+class SaleSnackItem(BaseModel):
+    id: str
+    quantity: int
+    snack_name: Optional[str] = None
+    price: float = 0.0
+
+    class Config:
+        from_attributes = True
+
+
+class SaleResponse(BaseModel):
+    operator: Optional[str] = None
     id: str
     timestamp: datetime
-    sale_snacks: List[SaleSnackResponse] = []
+    total_price: float
+    sale_snacks: List[SaleSnackItem] = []
 
     class Config:
         from_attributes = True
