@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
@@ -83,3 +84,73 @@ def process_sales(
         return "สินค้าชำระเสร็จ"
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/upload-excel", response_model=schemas.ExcelUploadResponse)
+async def upload_excel(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload and process Excel file with multiple sheets
+    - Accepts .xlsx and .xls files
+    - Processes multiple sheets and side-by-side tables
+    - Extracts Name, Quantity, Price, Unit, TotalUnit, PricePerUnit, SalePrice
+    - Returns parsed data in JSON format
+    """
+    # Validate file type
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an Excel file.")
+    
+    stock_service = service.StockService(db)
+    
+    try:
+        # Read file content
+        contents = await file.read()
+        
+        # Process the data
+        result = stock_service.process_excel_file(contents)
+        
+        return result
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+
+@router.post("/convert-excel")
+async def convert_excel(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload Excel file and get formatted Excel file back
+    - Accepts .xlsx and .xls files
+    - Processes multiple sheets and side-by-side tables
+    - Returns formatted Excel file with merged data
+    """
+    # Validate file type
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload an Excel file.")
+    
+    stock_service = service.StockService(db)
+    
+    try:
+        # Read file content
+        contents = await file.read()
+        
+        # Process and transform the data
+        processed_excel = stock_service.transform_excel_to_file(contents)
+        
+        # Return the file as a download
+        return StreamingResponse(
+            processed_excel,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=formatted_{file.filename}"}
+        )
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

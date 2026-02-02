@@ -2,6 +2,10 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 from datetime import datetime
+import io
+import pandas as pd
+import numpy as np
+import math
 from . import models, schemas, repository
 from ..snacks import repository as snacks_repository
 from ..sales import repository as sales_repository
@@ -165,3 +169,203 @@ class StockService:
             created_sales.append(sale)
         
         return created_sales
+
+    def process_excel_file(self, file_content: bytes) -> dict:
+        """
+        Process Excel file with multiple sheets and tables
+        Returns parsed data in structured format
+        """
+        try:
+            # Load the Excel file from bytes
+            xls = pd.read_excel(io.BytesIO(file_content), sheet_name=None, header=None)
+        except Exception as e:
+            raise ValueError(f"Could not read Excel file: {e}")
+
+        all_data_frames = []
+        standard_columns = ["Name", "Quantity", "Price", "Unit", "TotalUnit", "PricePerUnit", "SalePrice"]
+
+        for sheet_name, df in xls.items():
+            # 1. Find the header row (looking for "Name" and "Quantity")
+            header_row_idx = None
+            for i, row in df.iterrows():
+                row_str = row.astype(str).tolist()
+                if "Name" in row_str and "Quantity" in row_str:
+                    header_row_idx = i
+                    break
+            
+            if header_row_idx is None:
+                continue  # Skip sheets without the expected structure
+
+            header_row = df.iloc[header_row_idx]
+            num_cols = df.shape[1]
+
+            # 2. Scan columns to find side-by-side tables
+            for c in range(num_cols):
+                val = str(header_row[c]).strip()
+                
+                if val == "Name":
+                    # Determine block size (approx 7 columns)
+                    end_col = min(c + 7, num_cols)
+                    
+                    # Extract data block
+                    sub_df = df.iloc[header_row_idx+1:, c:end_col].copy()
+                    
+                    # Standardize columns
+                    if sub_df.shape[1] == 7:
+                        sub_df.columns = standard_columns
+                    else:
+                        sub_df.columns = standard_columns[:sub_df.shape[1]]
+
+                    # 3. Get Category (e.g., Makro, Pepsi) from the row above header
+                    category = "Unknown"
+                    if header_row_idx > 0:
+                        cat_val = df.iloc[header_row_idx-1, c]
+                        if pd.notna(cat_val):
+                            category = str(cat_val).strip()
+
+                    # Add metadata
+                    sub_df["Sheet"] = sheet_name
+                    sub_df["Category"] = category
+                    
+                    # Filter valid rows
+                    sub_df = sub_df[sub_df["Name"].notna()]
+                    
+                    all_data_frames.append(sub_df)
+
+        if not all_data_frames:
+            raise ValueError("No valid data tables found in the provided file.")
+
+        # Combine all data
+        final_df = pd.concat(all_data_frames, ignore_index=True)
+
+        # Convert numeric columns
+        cols_to_numeric = ["Quantity", "Price", "Unit", "TotalUnit", "PricePerUnit", "SalePrice"]
+        for col in cols_to_numeric:
+            if col in final_df.columns:
+                final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
+
+        # Replace infinite values with NaN
+        final_df = final_df.replace([np.inf, -np.inf], np.nan)
+
+        # Drop rows where all numeric columns are missing
+        final_df = final_df.dropna(subset=cols_to_numeric, how='all')
+
+        # Convert remaining NaN to None for JSON serialization
+        final_df = final_df.where(pd.notnull(final_df), None)
+
+        # Convert to list of dictionaries
+        raw_list = final_df.to_dict('records')
+
+        # Sanitize values: convert numpy types to native Python and replace non-finite floats
+        def sanitize_value(v):
+            if v is None:
+                return None
+            # numpy integer
+            if isinstance(v, (np.integer,)):
+                return int(v)
+            # numpy floating or python float
+            if isinstance(v, (np.floating, float)):
+                try:
+                    fv = float(v)
+                except Exception:
+                    return None
+                if not math.isfinite(fv):
+                    return None
+                return fv
+            # numpy boolean
+            if isinstance(v, (np.bool_,)):
+                return bool(v)
+            return v
+
+        data_list = []
+        for rec in raw_list:
+            sanitized = {k: sanitize_value(v) for k, v in rec.items()}
+            data_list.append(sanitized)
+
+        return {
+            "message": "Excel file processed successfully",
+            "total_rows": len(data_list),
+            "data": data_list
+        }
+
+    def transform_excel_to_file(self, file_content: bytes) -> io.BytesIO:
+        """
+        Reads raw Excel bytes, processes all sheets/tables, and returns 
+        a BytesIO object containing the formatted Excel file.
+        """
+        try:
+            # Load the Excel file from bytes
+            xls = pd.read_excel(io.BytesIO(file_content), sheet_name=None, header=None)
+        except Exception as e:
+            raise ValueError(f"Could not read Excel file: {e}")
+
+        all_data_frames = []
+        standard_columns = ["Name", "Quantity", "Price", "Unit", "TotalUnit", "PricePerUnit", "SalePrice"]
+
+        for sheet_name, df in xls.items():
+            # 1. Find the header row (looking for "Name" and "Quantity")
+            header_row_idx = None
+            for i, row in df.iterrows():
+                row_str = row.astype(str).tolist()
+                if "Name" in row_str and "Quantity" in row_str:
+                    header_row_idx = i
+                    break
+            
+            if header_row_idx is None:
+                continue  # Skip sheets without the expected structure
+
+            header_row = df.iloc[header_row_idx]
+            num_cols = df.shape[1]
+
+            # 2. Scan columns to find side-by-side tables
+            for c in range(num_cols):
+                val = str(header_row[c]).strip()
+                
+                if val == "Name":
+                    # Determine block size (approx 7 columns)
+                    end_col = min(c + 7, num_cols)
+                    
+                    # Extract data block
+                    sub_df = df.iloc[header_row_idx+1:, c:end_col].copy()
+                    
+                    # Standardize columns
+                    if sub_df.shape[1] == 7:
+                        sub_df.columns = standard_columns
+                    else:
+                        sub_df.columns = standard_columns[:sub_df.shape[1]]
+
+                    # 3. Get Category (e.g., Makro, Pepsi) from the row above header
+                    category = "Unknown"
+                    if header_row_idx > 0:
+                        cat_val = df.iloc[header_row_idx-1, c]
+                        if pd.notna(cat_val):
+                            category = str(cat_val).strip()
+
+                    # Add metadata
+                    sub_df["Sheet"] = sheet_name
+                    sub_df["Category"] = category
+                    
+                    # Filter valid rows
+                    sub_df = sub_df[sub_df["Name"].notna()]
+                    
+                    all_data_frames.append(sub_df)
+
+        if not all_data_frames:
+            raise ValueError("No valid data tables found in the provided file.")
+
+        # Combine all data
+        final_df = pd.concat(all_data_frames, ignore_index=True)
+
+        # Convert numeric columns
+        cols_to_numeric = ["Quantity", "Price", "Unit", "TotalUnit", "PricePerUnit", "SalePrice"]
+        for col in cols_to_numeric:
+            if col in final_df.columns:
+                final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
+
+        # Save to buffer
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            final_df.to_excel(writer, index=False, sheet_name="MergedData")
+        
+        output.seek(0)
+        return output

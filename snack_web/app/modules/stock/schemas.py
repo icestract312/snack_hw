@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class StockBase(BaseModel):
@@ -36,6 +36,32 @@ class StockResponse(StockBase):
 class PurchaseItem(BaseModel):
     snack_id: str
     quantity: int
+
+    class Config:
+        from_attributes = True
+
+
+class ExcelRowData(BaseModel):
+    """Schema for parsed Excel row data"""
+    Name: str
+    Quantity: Optional[float] = None
+    Price: Optional[float] = None
+    Unit: Optional[float] = None
+    TotalUnit: Optional[float] = None
+    PricePerUnit: Optional[float] = None
+    SalePrice: Optional[float] = None
+    Sheet: str
+    Category: str
+
+    class Config:
+        from_attributes = True
+
+
+class ExcelUploadResponse(BaseModel):
+    """Response schema for Excel upload"""
+    message: str
+    total_rows: int
+    data: List[ExcelRowData]
 
     class Config:
         from_attributes = True

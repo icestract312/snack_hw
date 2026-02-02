@@ -1,7 +1,9 @@
 Flask
 pandas
+openpyxl
 python-dotenv
 fastapi
 uvicorn[standard]
 SQLAlchemy
 psycopg2-binary
+python-multipart
